@@ -1,0 +1,1134 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {},
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -400,
+        -96
+      ],
+      "id": "7c33be60-10c7-489a-b813-f9011c6c039d",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, testo_domanda, risposta_attesa FROM domande ORDER BY id ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        -64,
+        -96
+      ],
+      "id": "51a867d2-8449-4c11-94f3-710409089aad",
+      "name": "Execute a SQL query",
+      "credentials": {
+        "postgres": {
+          "id": "LLl4319CHvPTRoh4",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        112,
+        -96
+      ],
+      "id": "b25fdd52-4e55-4aa9-9fbf-9cd1cf635903",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8bdf0cfb-f29f-47ee-950f-cfd03d8347e6",
+              "name": "=tentativo",
+              "value": "={{ $json.tentativo || 1 }}\n",
+              "type": "number"
+            },
+            {
+              "id": "37019f4d-62e1-4c97-9e27-855661cd18b7",
+              "name": "feedback",
+              "value": "0",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        352,
+        -48
+      ],
+      "id": "3c0046b7-8bbc-45bf-babf-5f3ed9f75e0b",
+      "name": "Init Tentativo"
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "=Domanda del dottore: {{ $('Loop Over Items').item.json.testo_domanda }}\nTentativo attuale: {{ $json.tentativo }} di 3.\nErrore precedente del paziente (vuoto se è il primo tentativo): {{ $json.feedback }}\n",
+        "options": {
+          "systemMessage": "Sei l'assistente vocale integrato in un paio di occhiali smart per pazienti.\n- Se il tentativo è 1: poni la domanda del dottore al paziente in modo chiaro, naturale e diretto, senza aggiungere altro.\n- Se il tentativo è 2 o 3: spiega brevemente che la risposta precedente non era completa, dai un piccolo indizio basato sull'errore precedente (senza mai svelare la risposta esatta) e riponi la domanda.\nRispondi solo con le parole che gli occhiali devono pronunciare ad alta voce.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        592,
+        -48
+      ],
+      "id": "d472d0a5-5fc7-48d2-8433-9a8d54ebdbcf",
+      "name": "Agente Occhiali"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        128
+      ],
+      "id": "42545f8e-fcb9-4e64-833d-ea7af58a78d8",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PljX1WYXDewwZPea",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=it&q=](https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=it&q=){{ encodeURIComponent($json.output) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        -48
+      ],
+      "id": "e90f955a-5254-48c7-8ca4-f973dd224d2d",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1152,
+        144
+      ],
+      "id": "642c27c0-4d08-482f-bf40-a75ebd142f91",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PljX1WYXDewwZPea",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "=Domanda: {{ $('Loop Over Items').item.json.testo_domanda }}\nRisposta attesa dal dottore: {{ $('Loop Over Items').item.json.risposta_attesa }}\nRisposta data dal paziente: {{ $json.output }}\nValuta se la risposta del paziente è clinicamente corretta e completa.",
+        "hasOutputParser": true,
+        "messages": {
+          "messageValues": []
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1520,
+        -48
+      ],
+      "id": "be489cab-7c70-4f82-831c-ff2774e5b33b",
+      "name": "Giudice AI"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        1456,
+        144
+      ],
+      "id": "627b1718-0efe-4eeb-b397-b0f3086328c0",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PljX1WYXDewwZPea",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"corretta\": false,\n  \"motivazione\": \"Spiegazione sintetica di cosa manca o è sbagliato\"\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1648,
+        144
+      ],
+      "id": "9b359dd4-77db-49d6-ab2d-2722e4e8676c",
+      "name": "Structured Output Parser"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "9ef28bc4-6f70-44b8-bc73-b3a5cfec546c",
+              "leftValue": "={{ $json.esito }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "c82c2540-b670-4629-8c17-5327358f7f77",
+              "leftValue": "={{ $('Init Tentativo').item.json.tentativo }}",
+              "rightValue": "=3",
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        2048,
+        -64
+      ],
+      "id": "f8a6302e-1e2e-4a6e-8b5a-c02a2b7382ca",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "26ccbf7e-d458-45f4-8a42-17bcae679dfa",
+              "name": "=tentativo",
+              "value": "={{ $json.tentativi_usati + 1 }}",
+              "type": "number"
+            },
+            {
+              "id": "d3aac68f-54b8-4a9c-b5b3-4f8a1a4ab823",
+              "name": "=feedback",
+              "value": "={{ $('Giudice AI').last().json.output.motivazione }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        2160,
+        112
+      ],
+      "id": "25f99f19-20fd-4d31-82df-fc8e9ecd5b79",
+      "name": "Prepara Riprova"
+    },
+    {
+      "parameters": {
+        "schema": {
+          "__rl": true,
+          "mode": "list",
+          "value": "public"
+        },
+        "table": {
+          "__rl": true,
+          "value": "risultati_simulazione",
+          "mode": "list",
+          "cachedResultName": "risultati_simulazione"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "esito": "={{ $json.output.corretta }}",
+            "domanda_id": "={{ $('Loop Over Items').item.json.id }}",
+            "risposta_paziente": "={{ $('Agente Paziente').item.json.output }}",
+            "tentativi_usati": "={{ $('Init Tentativo').item.json.tentativo }}"
+          },
+          "matchingColumns": [
+            "id"
+          ],
+          "schema": [
+            {
+              "id": "id",
+              "displayName": "id",
+              "required": false,
+              "defaultMatch": true,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "removed": true
+            },
+            {
+              "id": "domanda_id",
+              "displayName": "domanda_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "risposta_paziente",
+              "displayName": "risposta_paziente",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tentativi_usati",
+              "displayName": "tentativi_usati",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "esito",
+              "displayName": "esito",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "boolean",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "data_test",
+              "displayName": "data_test",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "dateTime",
+              "canBeUsedToMatch": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        1840,
+        -64
+      ],
+      "id": "2cc93779-a45c-490d-a70e-b381209944b3",
+      "name": "Insert rows in a table",
+      "credentials": {
+        "postgres": {
+          "id": "LLl4319CHvPTRoh4",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "=define",
+        "text": "={{ $('Agente Occhiali').item.json.output }}",
+        "options": {
+          "systemMessage": "=Sei un paziente simulato che indossa degli occhiali smart e risponde a voce alle domande del medico. Rispondi sempre in prima persona, in modo naturale e breve.\nTentativo attuale: {{ $('Init Tentativo').last().json.tentativo }} di 3.\nIstruzione per questa risposta: {{ Math.random() < 0.60 ? \"NON ricordi la risposta corretta: dai una risposta sbagliata, incompleta o confusa (anche se hai ricevuto un indizio dagli occhiali, resta incerto e sbaglia comunque).\" : \"Ora ricordi la regola medica: dai finalmente la risposta completa e clinicamente corretta.\" }}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        1184,
+        -48
+      ],
+      "id": "0f252731-46e3-406d-9d9f-6b7374442479",
+      "name": "Agente Paziente"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT d.testo_domanda, r.risposta_paziente, r.tentativi_usati AS numero_tentativo, r.esito\nFROM risultati_simulazione r\nJOIN domande d ON r.domanda_id = d.id\nORDER BY r.id ASC\nLIMIT 30;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        336,
+        -208
+      ],
+      "id": "41e975b6-fca5-4571-8daa-bcac92ce1e6b",
+      "name": "Execute a SQL query1",
+      "credentials": {
+        "postgres": {
+          "id": "LLl4319CHvPTRoh4",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Ecco tutti i tentativi effettuati dal paziente durante la sessione tramite gli occhiali smart:\n{{ JSON.stringify($input.all().map(i => i.json)) }}\n\nRedigi un referto clinico chiaro e ordinato per il medico curante. Per ogni domanda:\n1. Riporta il testo della domanda.\n2. Elenca in ordine cronologico TUTTE le risposte date dal paziente (sia quelle sbagliate con esito false, sia quella corretta con esito true), indicando per ciascuna il numero del tentativo, la risposta esatta pronunciata e se è risultata Errata o Corretta.\n3. Aggiungi una breve valutazione finale sull'aderenza del paziente.\n\nScrivi in italiano pulito, senza usare asterischi Markdown (**), cancelletti (###) o segnaposto tra parentesi quadre.\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        560,
+        -336
+      ],
+      "id": "9dc5b134-b3e7-4593-bc89-0d953088225d",
+      "name": "Report Dottore",
+      "executeOnce": true,
+      "retryOnFail": false,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.6-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        544,
+        -192
+      ],
+      "id": "406298ce-da0f-4836-99a4-c6e8fa2d2b81",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PljX1WYXDewwZPea",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "html": "<!DOCTYPE html>\n<html lang=\"it\">\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body { font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; background: #f1f5f9; color: #1e293b; padding: 32px; }\n    .referto { max-width: 760px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); border-top: 6px solid #0284c7; }\n    .intestazione { border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; margin-bottom: 24px; }\n    .intestazione h1 { margin: 0; font-size: 22px; color: #0f172a; }\n    .intestazione p { margin: 4px 0 0; font-size: 13px; color: #64748b; }\n    .corpo { font-size: 15px; line-height: 1.7; }\n  </style>\n</head>\n<body>\n  <div class=\"referto\">\n    <div class=\"intestazione\">\n      <h1>Referto Clinico — Monitoraggio Smart Glasses</h1>\n      <p>Riepilogo sessione di verifica paziente</p>\n    </div>\n    <div class=\"corpo\">\n      {{ $json.output.replaceAll('\\n', '<br>') }}\n    </div>\n  </div>\n</body>\n</html>\n"
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        928,
+        -336
+      ],
+      "id": "18e6d8cb-de68-42d9-a0e7-ea11cf2531a3",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "=html",
+        "options": {
+          "fileName": "Referto_Medico.html"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.2,
+      "position": [
+        1152,
+        -336
+      ],
+      "id": "440b84ce-08a6-4c50-87d4-4b3ceb8a0e0c",
+      "name": "Convert to File"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "TRUNCATE TABLE risultati_simulazione RESTART IDENTITY;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        -240,
+        -96
+      ],
+      "id": "b6b8ab19-2d11-49ff-a380-98fab46493d0",
+      "name": "Pulisci Storico",
+      "credentials": {
+        "postgres": {
+          "id": "LLl4319CHvPTRoh4",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT COALESCE(json_agg(t), '[]'::json) AS note\nFROM (\n  SELECT argomento, dettaglio, inserito_da\n  FROM note_familiari\n  ORDER BY id ASC\n) t;\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        384,
+        -848
+      ],
+      "id": "95cd351f-bdf3-40ef-844a-df32e484c169",
+      "name": "Leggi note parenti",
+      "credentials": {
+        "postgres": {
+          "id": "LLl4319CHvPTRoh4",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "sessione_paziente"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        720,
+        -688
+      ],
+      "id": "012edf66-675c-45b7-86a8-d2204215badc",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        -656
+      ],
+      "id": "26b5b939-20de-417d-9659-faa216391e60",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, testo_domanda\nFROM domande_paziente\nORDER BY id ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        -512,
+        -656
+      ],
+      "id": "d102ee77-8ce3-4a6a-a052-e4180d8f0e86",
+      "name": "Leggi Domande Paziente",
+      "credentials": {
+        "postgres": {
+          "id": "LLl4319CHvPTRoh4",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.testo_domanda }}",
+        "options": {
+          "systemMessage": "Sei una persona anziana che indossa degli occhiali smart e preme il tasto per fare una domanda ad alta voce al proprio assistente. Trasforma l'argomento ricevuto in una domanda spontanea, breve e naturale in italiano (1 o 2 frasi al massimo), come se stessi parlando davvero agli occhiali. Non aggiungere saluti lunghi o commenti extra."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        32,
+        -848
+      ],
+      "id": "4a6beae3-ec19-4dff-991d-d8a44f569cb5",
+      "name": "Agente Paziente 1",
+      "retryOnFail": false,
+      "maxTries": 3,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -304,
+        -656
+      ],
+      "id": "f137a43b-c468-45f4-9ec2-bc623a58fabc",
+      "name": "Loop Over Items 1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Agente Paziente 1').last().json.output }}",
+        "options": {
+          "systemMessage": "=Sei l'assistente vocale integrato negli occhiali smart di un paziente anziano. Rispondi sempre in italiano in modo chiaro, paziente, rassicurante e breve (massimo 3-4 frasi adatte all'ascolto), senza asterischi o simboli Markdown.\n\nQui sotto trovi le informazioni personali inserite dai parenti nel database:\n{{ JSON.stringify($json.note) }}\n\nRegole:\n- Se il paziente chiede informazioni su oggetti di casa, medicine, appuntamenti o contatti presenti nelle note dei parenti, rispondi usando esattamente quei dettagli.\n- Se il paziente fa una domanda generica (es. salute di base, consigli quotidiani, cultura generale), rispondi normalmente con le tue conoscenze.\n- Se chiede un dettaglio personale che non è presente nelle note, dì gentilmente che i familiari non hanno ancora salvato quell'informazione e suggerisci di chiedere a loro."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        656,
+        -848
+      ],
+      "id": "6cea0bcc-3d43-4677-9bf7-fd5aba1fec98",
+      "name": "Assistente Occhiali",
+      "retryOnFail": false,
+      "waitBetweenTries": 3000
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "88dd030e-a46e-4437-895d-0aa7b289ca2e",
+              "name": "domanda_paziente",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "7b375444-5800-4c02-99c6-7e44a7855b1c",
+              "name": "risposta_occhiali",
+              "value": "",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1024,
+        -656
+      ],
+      "id": "6a37b05d-4bb4-4bd3-9fff-cfa2f8e74fdc",
+      "name": "Riepilogo Conversazione"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.1-flash-lite",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        -16,
+        -688
+      ],
+      "id": "5e8e04ac-177c-4c2d-b112-7fddfb912d9f",
+      "name": "Google Gemini Chat Model 5",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PljX1WYXDewwZPea",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-3.5-flash",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1.2,
+      "position": [
+        560,
+        -688
+      ],
+      "id": "8873ade1-25ec-488a-b9a7-06a091f8aacf",
+      "name": "Google Gemini Chat Model 4",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "PljX1WYXDewwZPea",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst dataOra = new Date().toLocaleString('it-IT');\n\nconst escapeHtml = (str) =>\n  String(str ?? '')\n    .replace(/&/g, '&amp;')\n    .replace(/</g, '&lt;')\n    .replace(/>/g, '&gt;')\n    .replace(/\"/g, '&quot;');\n\nconst blocchi = items.map((item, i) => {\n  const domanda = escapeHtml(item.json.domanda_paziente || 'Domanda non disponibile');\n  const risposta = escapeHtml(item.json.risposta_occhiali || 'Risposta non disponibile');\n  return `\n    <div class=\"scambio\">\n      <div class=\"badge\">Interazione ${i + 1}</div>\n      <div class=\"msg paziente\">\n        <span class=\"ruolo\">Paziente (Occhiali)</span>\n        <p>${domanda}</p>\n      </div>\n      <div class=\"msg assistente\">\n        <span class=\"ruolo\">Assistente AI</span>\n        <p>${risposta}</p>\n      </div>\n    </div>`;\n}).join('\\n');\n\nconst html = `<!DOCTYPE html>\n<html lang=\"it\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Riepilogo Assistente Occhiali Smart</title>\n  <style>\n    body { font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif; background: #f8fafc; color: #0f172a; margin: 0; padding: 32px 16px; }\n    .container { max-width: 760px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; padding: 32px; box-shadow: 0 10px 25px rgba(15,23,42,0.06); }\n    h1 { margin: 0 0 6px; font-size: 22px; color: #0f172a; }\n    .meta { color: #64748b; font-size: 13px; margin-bottom: 28px; border-bottom: 1px solid #e2e8f0; padding-bottom: 16px; }\n    .scambio { margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px dashed #cbd5e1; }\n    .scambio:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }\n    .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #0284c7; margin-bottom: 10px; }\n    .msg { padding: 12px 16px; border-radius: 10px; margin-bottom: 10px; }\n    .paziente { background: #f1f5f9; border-left: 4px solid #64748b; }\n    .assistente { background: #eff6ff; border-left: 4px solid #0284c7; }\n    .ruolo { display: block; font-size: 12px; font-weight: 600; color: #475569; margin-bottom: 4px; }\n    .msg p { margin: 0; font-size: 15px; line-height: 1.5; }\n  </style>\n</head>\n<body>\n  <div class=\"container\">\n    <h1>Riepilogo Conversazione — Occhiali Smart AI</h1>\n    <div class=\"meta\">Generato il ${dataOra} · Totale interazioni: ${items.length}</div>\n    ${blocchi}\n  </div>\n</body>\n</html>`;\n\nreturn [{ json: { html } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -1040
+      ],
+      "id": "a3759f6d-ca2c-4f54-82ef-87d140762037",
+      "name": "Genera html Conversazione"
+    },
+    {
+      "parameters": {
+        "operation": "toText",
+        "sourceProperty": "html",
+        "options": {
+          "fileName": "Riepilogo_Assistente.html"
+        }
+      },
+      "type": "n8n-nodes-base.convertToFile",
+      "typeVersion": 1.2,
+      "position": [
+        144,
+        -1040
+      ],
+      "id": "afa107c8-00a3-4e08-8b64-f616b48464d2",
+      "name": "Convert to File 1"
+    }
+  ],
+  "pinData": {
+    "Schedule Trigger": [
+      {
+        "json": {
+          "timestamp": "2026-11-23T10:43:41.679+01:00",
+          "Readable date": "November 23rd 2026, 10:43:41 am",
+          "Readable time": "10:43:41 am",
+          "Day of week": "Monday",
+          "Year": "2026",
+          "Month": "November",
+          "Day of month": "23",
+          "Hour": "10",
+          "Minute": "43",
+          "Second": "41",
+          "Timezone": "Europe/Rome (UTC+01:00)"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Pulisci Storico",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Init Tentativo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Init Tentativo": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Agente Occhiali",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Occhiali",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Occhiali": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Agente Paziente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Paziente",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Giudice AI",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Giudice AI",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Giudice AI": {
+      "main": [
+        [
+          {
+            "node": "Insert rows in a table",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepara Riprova",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepara Riprova": {
+      "main": [
+        [
+          {
+            "node": "Init Tentativo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Paziente": {
+      "main": [
+        [
+          {
+            "node": "Giudice AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Insert rows in a table": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute a SQL query1": {
+      "main": [
+        [
+          {
+            "node": "Report Dottore",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Report Dottore",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Report Dottore": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "Convert to File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pulisci Storico": {
+      "main": [
+        [
+          {
+            "node": "Execute a SQL query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi note parenti": {
+      "main": [
+        [
+          {
+            "node": "Assistente Occhiali",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Assistente Occhiali",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Leggi Domande Paziente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leggi Domande Paziente": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agente Paziente 1": {
+      "main": [
+        [
+          {
+            "node": "Leggi note parenti",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items 1": {
+      "main": [
+        [
+          {
+            "node": "Genera html Conversazione",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Agente Paziente 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assistente Occhiali": {
+      "main": [
+        [
+          {
+            "node": "Riepilogo Conversazione",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Riepilogo Conversazione": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model 5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Agente Paziente 1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model 4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Assistente Occhiali",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Genera html Conversazione": {
+      "main": [
+        [
+          {
+            "node": "Convert to File 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4261f0ae-7a9f-4157-9f3a-f776d79fe016",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "96e139433e8d881a82a6ee8d26a94687a7d35f9f825673eb23c5ac4f2606f8d4"
+  },
+  "nodeGroups": [],
+  "id": "rDKz2B1LNC5ntvyD",
+  "tags": []
+}
